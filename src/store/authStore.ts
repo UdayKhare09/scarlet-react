@@ -5,6 +5,7 @@ import {
   logoutApi,
   completeMfaApi,
   syncUserApi,
+  getAuthUserApi,
 } from '../api/authApi';
 import type { UserResponse } from '../api/authApi';
 
@@ -102,19 +103,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       get().addLog(`MFA verification successful. Syncing user profile...`);
       
       // Load user profile from scarlet-user downstream
-      const profile = await syncUserApi();
+      await syncUserApi();
+      
+      // Get authentication details from scarlet-auth service
+      const authUser = await getAuthUserApi();
       
       set({
-        userProfile: {
-          id: profile.id,
-          email: profile.email,
-          fullName: `${profile.firstName || ''} ${profile.lastName || ''}`.trim(),
-          role: 'ROLE_USER',
-          createdAt: profile.createdAt,
-          hasPassword: true,
-          hasPasskey: false, // will update on dashboard load
-          hasOAuth2: false,
-        },
+        userProfile: authUser,
         mfaChallenge: null,
         loading: false,
       });
@@ -142,18 +137,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   syncProfile: async () => {
     set({ loading: true });
     try {
-      const profile = await syncUserApi();
+      // Sync user profile in user service database
+      await syncUserApi();
+      
+      // Get authentication details from scarlet-auth service
+      const authUser = await getAuthUserApi();
+      
       set({
-        userProfile: {
-          id: profile.id,
-          email: profile.email,
-          fullName: `${profile.firstName || ''} ${profile.lastName || ''}`.trim(),
-          role: 'ROLE_USER',
-          createdAt: profile.createdAt,
-          hasPassword: true,
-          hasPasskey: false, // passkeys list will be fetched in component
-          hasOAuth2: false,
-        },
+        userProfile: authUser,
         loading: false,
       });
     } catch (err: any) {

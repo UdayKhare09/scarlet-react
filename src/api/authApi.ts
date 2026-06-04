@@ -72,6 +72,12 @@ export async function syncUserApi(): Promise<any> {
   return res.data;
 }
 
+// Get Authenticated User status from scarlet-auth service
+export async function getAuthUserApi(): Promise<UserResponse> {
+  const res = await apiClient.get<UserResponse>('/api/auth/me');
+  return res.data;
+}
+
 // WebAuthn Passkey operations
 export async function getPasskeyRegisterOptionsApi(): Promise<any> {
   const res = await apiClient.get('/api/webauthn/register/options');
