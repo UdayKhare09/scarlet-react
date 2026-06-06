@@ -3,6 +3,8 @@ import { apiClient } from './apiClient';
 export interface UserResponse {
   id: string;
   email: string;
+  firstName?: string;
+  lastName?: string;
   fullName: string;
   role: string;
   createdAt: string;
@@ -24,8 +26,8 @@ export async function loginApi(email: string, password: String): Promise<AuthRes
   return res.data;
 }
 
-export async function registerApi(fullName: string, email: string, password: string): Promise<AuthResponse> {
-  const res = await apiClient.post<AuthResponse>('/api/auth/register', { fullName, email, password });
+export async function registerApi(firstName: string, lastName: string, email: string, password: string): Promise<AuthResponse> {
+  const res = await apiClient.post<AuthResponse>('/api/auth/register', { firstName, lastName, email, password });
   return res.data;
 }
 
@@ -137,5 +139,15 @@ export async function confirmTotpMfaApi(code: number): Promise<any> {
 
 export async function disableTotpMfaApi(): Promise<any> {
   const res = await apiClient.post('/api/mfa/totp/disable');
+  return res.data;
+}
+
+export async function updateProfileApi(firstName: string, lastName: string): Promise<UserResponse> {
+  const res = await apiClient.put<UserResponse>('/api/auth/me', { firstName, lastName });
+  return res.data;
+}
+
+export async function changePasswordApi(currentPassword: string, newPassword: string): Promise<AuthResponse> {
+  const res = await apiClient.post<AuthResponse>('/api/auth/change-password', { currentPassword, newPassword });
   return res.data;
 }

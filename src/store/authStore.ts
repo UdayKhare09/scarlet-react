@@ -6,6 +6,8 @@ import {
   completeMfaApi,
   syncUserApi,
   getAuthUserApi,
+  updateProfileApi,
+  changePasswordApi,
 } from '../api/authApi';
 import type { UserResponse } from '../api/authApi';
 
@@ -30,6 +32,8 @@ interface AuthState {
   completeMfa: (method: string, code: string) => Promise<boolean>;
   logout: () => Promise<void>;
   syncProfile: () => Promise<void>;
+  updateProfile: (firstName: string, lastName: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -80,7 +84,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     get().addLog(`Registering account for ${email}...`);
     set({ loading: true, error: null });
     try {
-      const res = await registerApi(fullName, email, password);
+      const [firstName, ...lastNameParts] = fullName.trim().split(/\s+/);
+      const lastName = lastNameParts.join(' ');
+      const res = await registerApi(firstName, lastName || '', email, password);
       get().addLog(`Registration completed successfully.`);
       set({ loading: false });
       return res.message || 'Registration successful. Check your email to verify your account.';
@@ -149,6 +155,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     } catch (err: any) {
       set({ userProfile: null, loading: false });
+    }
+  },
+
+  updateProfile: async (firstName, lastName) => {
+    get().addLog(`Updating profile name to: ${firstName} ${lastName}...`);
+    set({ loading: true, error: null });
+    try {
+      const updatedUser = await updateProfileApi(firstName, lastName);
+      get().addLog(`Profile updated successfully.`);
+      set({ userProfile: updatedUser, loading: false });
+    } catch (err: any) {
+      get().addLog(`Profile update failed: ${err.message}`);
+      set({ error: err.message, loading: false });
+      throw err;
+    }
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    get().addLog(`Initiating password change...`);
+    set({ loading: true, error: null });
+    try {
+      const res = await changePasswordApi(currentPassword, newPassword);
+      get().addLog(res.message || `Password changed successfully.`);
+      set({ loading: false });
+    } catch (err: any) {
+      get().addLog(`Password change failed: ${err.message}`);
+      set({ error: err.message, loading: false });
+      throw err;
     }
   },
 }));
