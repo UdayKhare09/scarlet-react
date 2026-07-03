@@ -31,7 +31,7 @@ interface AuthState {
   clearError: () => void;
   clearMfaChallenge: () => void;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (fullName: string, email: string, password: string) => Promise<string>;
+  register: (firstName: string, lastName: string, email: string, password: string) => Promise<string>;
   completeMfa: (method: string, code: string) => Promise<boolean>;
   logout: () => Promise<void>;
   syncProfile: () => Promise<void>;
@@ -88,13 +88,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (fullName, email, password) => {
+  register: async (firstName, lastName, email, password) => {
     get().addLog(`Registering account for ${email}...`);
     set({ loading: true, error: null });
     try {
-      const [firstName, ...lastNameParts] = fullName.trim().split(/\s+/);
-      const lastName = lastNameParts.join(' ');
-      const res = await registerApi(firstName, lastName || '', email, password);
+      const res = await registerApi(firstName, lastName, email, password);
       get().addLog(`Registration completed successfully.`);
       set({ loading: false });
       return res.message || 'Registration successful. Check your email to verify your account.';

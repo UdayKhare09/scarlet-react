@@ -8,18 +8,20 @@ interface RegisterPageProps {
 
 export default function RegisterPage({ onToggleLogin }: RegisterPageProps) {
   const { register, error, clearError, loading } = useAuthStore();
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !email || !password) return;
+    if (!firstName || !email || !password) return;
     try {
-      const msg = await register(fullName, email, password);
+      const msg = await register(firstName, lastName, email, password);
       setSuccessMessage(msg);
-      setFullName('');
+      setFirstName('');
+      setLastName('');
       setEmail('');
       setPassword('');
     } catch {
@@ -64,18 +66,34 @@ export default function RegisterPage({ onToggleLogin }: RegisterPageProps) {
         ) : (
           /* Register Form */
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="fieldset p-0">
-              <span className="fieldset-label font-bold text-xs uppercase tracking-wider text-base-content/60">Full Name</span>
-              <div className="relative w-full">
-                <input
-                  type="text"
-                  required
-                  placeholder="John Doe"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="input input-bordered w-full pl-10"
-                />
-                <User className="absolute left-3.5 top-3.5 w-4 h-4 text-base-content/40" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="fieldset p-0">
+                <span className="fieldset-label font-bold text-xs uppercase tracking-wider text-base-content/60">First Name</span>
+                <div className="relative w-full">
+                  <input
+                    type="text"
+                    required
+                    placeholder="John"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="input input-bordered w-full pl-10"
+                  />
+                  <User className="absolute left-3.5 top-3.5 w-4 h-4 text-base-content/40" />
+                </div>
+              </div>
+
+              <div className="fieldset p-0">
+                <span className="fieldset-label font-bold text-xs uppercase tracking-wider text-base-content/60">Last Name</span>
+                <div className="relative w-full">
+                  <input
+                    type="text"
+                    placeholder="Doe"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="input input-bordered w-full pl-10"
+                  />
+                  <User className="absolute left-3.5 top-3.5 w-4 h-4 text-base-content/40" />
+                </div>
               </div>
             </div>
 
