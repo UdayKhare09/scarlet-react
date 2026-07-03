@@ -8,6 +8,9 @@ import {
   getAuthUserApi,
   updateProfileApi,
   changePasswordApi,
+  listSessionsApi,
+  revokeSessionApi,
+  uploadAvatarApi,
 } from '../api/authApi';
 import type { UserResponse } from '../api/authApi';
 
@@ -34,6 +37,10 @@ interface AuthState {
   syncProfile: () => Promise<void>;
   updateProfile: (firstName: string, lastName: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  sessions: any[];
+  loadSessions: () => Promise<void>;
+  revokeSession: (id: string) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -42,6 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
   logs: [],
   mfaChallenge: null,
+  sessions: [],
 
   addLog: (msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -71,7 +79,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       get().addLog(`Login successful. Syncing profile...`);
-      set({ userProfile: res.user || null, loading: false });
+      await get().syncProfile();
       return true;
     } catch (err: any) {
       get().addLog(`Login failed: ${err.message}`);
@@ -108,14 +116,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await completeMfaApi(challenge.pendingToken, method, code);
       get().addLog(`MFA verification successful. Syncing user profile...`);
       
-      // Load user profile from scarlet-user downstream
-      await syncUserApi();
-      
-      // Get authentication details from scarlet-auth service
-      const authUser = await getAuthUserApi();
+      await get().syncProfile();
       
       set({
-        userProfile: authUser,
         mfaChallenge: null,
         loading: false,
       });
@@ -143,14 +146,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   syncProfile: async () => {
     set({ loading: true });
     try {
-      // Sync user profile in user service database
-      await syncUserApi();
+      // Sync user profile in user service database and get profile details
+      const profile = await syncUserApi();
       
       // Get authentication details from scarlet-auth service
       const authUser = await getAuthUserApi();
       
       set({
-        userProfile: authUser,
+        userProfile: {
+          ...authUser,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          profilePictureUrl: profile.profilePictureUrl,
+          fullName: `${profile.firstName} ${profile.lastName}`.trim(),
+        },
         loading: false,
       });
     } catch (err: any) {
@@ -162,9 +171,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     get().addLog(`Updating profile name to: ${firstName} ${lastName}...`);
     set({ loading: true, error: null });
     try {
-      const updatedUser = await updateProfileApi(firstName, lastName);
-      get().addLog(`Profile updated successfully.`);
-      set({ userProfile: updatedUser, loading: false });
+      await updateProfileApi(firstName, lastName);
+      get().addLog(`Profile updated successfully. Re-syncing details...`);
+      await get().syncProfile();
     } catch (err: any) {
       get().addLog(`Profile update failed: ${err.message}`);
       set({ error: err.message, loading: false });
@@ -181,6 +190,42 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ loading: false });
     } catch (err: any) {
       get().addLog(`Password change failed: ${err.message}`);
+      set({ error: err.message, loading: false });
+      throw err;
+    }
+  },
+
+  loadSessions: async () => {
+    try {
+      const data = await listSessionsApi();
+      set({ sessions: data });
+    } catch (err: any) {
+      get().addLog(`Failed to load active sessions: ${err.message}`);
+    }
+  },
+
+  revokeSession: async (id: string) => {
+    get().addLog(`Revoking session: ${id}...`);
+    try {
+      await revokeSessionApi(id);
+      get().addLog(`Session revoked.`);
+      const data = await listSessionsApi();
+      set({ sessions: data });
+    } catch (err: any) {
+      get().addLog(`Failed to revoke session: ${err.message}`);
+      throw err;
+    }
+  },
+
+  uploadAvatar: async (file: File) => {
+    get().addLog(`Uploading new profile picture...`);
+    set({ loading: true, error: null });
+    try {
+      await uploadAvatarApi(file);
+      get().addLog(`Avatar uploaded successfully. Syncing profile...`);
+      await get().syncProfile();
+    } catch (err: any) {
+      get().addLog(`Avatar upload failed: ${err.message}`);
       set({ error: err.message, loading: false });
       throw err;
     }

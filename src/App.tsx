@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from './store/authStore';
+import HomePage from './pages/HomePage';
+import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import MfaChallengePage from './pages/MfaChallengePage';
-import DashboardPage from './pages/DashboardPage';
 import { verifyEmailApi, resetPasswordApi } from './api/authApi';
 import { ShieldAlert, CheckCircle, ShieldCheck, Key, Lock, ArrowLeft, RefreshCw } from 'lucide-react';
 import Lenis from 'lenis';
@@ -13,7 +14,7 @@ export default function App() {
   const [initializing, setInitializing] = useState(true);
   const [view, setView] = useState<'login' | 'register'>('login');
   
-  // Custom router state for email verify and password reset
+  // Custom router state
   const [pathname, setPathname] = useState(window.location.pathname);
   const [queryParams, setQueryParams] = useState(new URLSearchParams(window.location.search));
 
@@ -26,25 +27,62 @@ export default function App() {
     }
     requestAnimationFrame(raf);
 
-    // 2. Initialise auth state by syncing profile
+    // 2. Setup path change listener
+    const handleLocationChange = () => {
+      setPathname(window.location.pathname);
+      setQueryParams(new URLSearchParams(window.location.search));
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    
+    const originalPush = window.history.pushState;
+    const originalReplace = window.history.replaceState;
+
+    window.history.pushState = function(...args) {
+      originalPush.apply(this, args);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    };
+
+    window.history.replaceState = function(...args) {
+      originalReplace.apply(this, args);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    };
+
+    // 3. Initialise auth state by syncing profile
     syncProfile().finally(() => {
       setInitializing(false);
     });
 
     return () => {
       lenis.destroy();
+      window.removeEventListener('popstate', handleLocationChange);
+      window.history.pushState = originalPush;
+      window.history.replaceState = originalReplace;
     };
   }, []);
 
+  // Correct URL path context if logged in and trying to access root or other paths
+  useEffect(() => {
+    if (!initializing && userProfile) {
+      if (pathname === '/' || pathname === '/login' || pathname === '/register') {
+        window.history.replaceState({}, '', '/home');
+      }
+    } else if (!initializing && !userProfile) {
+      if (pathname === '/home' || pathname === '/settings') {
+        window.history.replaceState({}, '', '/login');
+      }
+    }
+  }, [userProfile, pathname, initializing]);
+
   if (initializing) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-brand-bg space-y-4">
-        <h1 className="text-3xl font-extrabold text-white tracking-tight">
-          Project<span className="text-scarlet-light">Scarlet</span>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-base-100 space-y-4">
+        <h1 className="text-3xl font-extrabold text-base-content tracking-tight">
+          Project<span className="text-primary">Scarlet</span>
         </h1>
-        <div className="flex flex-col items-center gap-2 text-gray-500">
-          <span className="spinner spinner-lg border-scarlet" />
-          <p className="text-xs font-semibold tracking-widest uppercase">Initialising Security Protocol...</p>
+        <div className="flex flex-col items-center gap-2 text-base-content/50">
+          <span className="loading loading-spinner loading-lg text-primary" />
+          <p className="text-xs font-semibold tracking-widest uppercase mt-2">Initialising Security Protocol...</p>
         </div>
       </div>
     );
@@ -53,33 +91,35 @@ export default function App() {
   // Handle URL verify-email path
   if (pathname === '/verify-email') {
     return <VerifyEmailView queryParams={queryParams} onRedirect={() => {
-      window.history.replaceState({}, document.title, '/');
-      setPathname('/');
+      window.history.replaceState({}, document.title, '/login');
     }} />;
   }
 
   // Handle URL reset-password path
   if (pathname === '/reset-password') {
     return <ResetPasswordView queryParams={queryParams} onRedirect={() => {
-      window.history.replaceState({}, document.title, '/');
-      setPathname('/');
+      window.history.replaceState({}, document.title, '/login');
     }} />;
   }
 
-  // Regular Auth routing
-  if (userProfile) {
-    return <DashboardPage />;
+  // Auth Protection Route Gate
+  if (!userProfile) {
+    if (mfaChallenge) {
+      return <MfaChallengePage />;
+    }
+    return view === 'login' ? (
+      <LoginPage onToggleRegister={() => setView('register')} />
+    ) : (
+      <RegisterPage onToggleLogin={() => setView('login')} />
+    );
   }
 
-  if (mfaChallenge) {
-    return <MfaChallengePage />;
+  // Authenticated Views routing
+  if (pathname === '/settings') {
+    return <SettingsPage />;
   }
 
-  return view === 'login' ? (
-    <LoginPage onToggleRegister={() => setView('register')} />
-  ) : (
-    <RegisterPage onToggleLogin={() => setView('login')} />
-  );
+  return <HomePage />;
 }
 
 /* ============================================================
@@ -106,40 +146,40 @@ function VerifyEmailView({ queryParams, onRedirect }: { queryParams: URLSearchPa
   }, [queryParams]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-brand-bg">
-      <div className="w-full max-w-md p-8 rounded-2xl glass shadow-2xl text-center space-y-6">
-        <h2 className="text-2xl font-bold text-white">Email Verification</h2>
+    <div className="min-h-screen flex items-center justify-center p-6 bg-base-100">
+      <div className="card w-full max-w-md p-8 bg-base-200 border border-base-300 shadow-xl text-center space-y-6">
+        <h2 className="text-2xl font-bold text-base-content">Email Verification</h2>
 
         {status === 'verifying' && (
           <div className="flex flex-col items-center gap-3">
-            <RefreshCw className="w-12 h-12 text-scarlet-light animate-spin" />
-            <p className="text-gray-400 text-sm">Validating token authenticity...</p>
+            <RefreshCw className="w-12 h-12 text-primary animate-spin" />
+            <p className="text-base-content/60 text-sm">Validating token authenticity...</p>
           </div>
         )}
 
         {status === 'success' && (
           <div className="space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+            <div className="w-16 h-16 mx-auto rounded-full bg-success/10 flex items-center justify-center text-success">
               <CheckCircle className="w-8 h-8" />
             </div>
-            <p className="text-emerald-400 font-semibold">Account Verified Successfully!</p>
-            <p className="text-gray-400 text-sm">You can now proceed to log in with your credentials.</p>
+            <p className="text-success font-semibold">Account Verified Successfully!</p>
+            <p className="text-base-content/60 text-sm">You can now proceed to log in with your credentials.</p>
           </div>
         )}
 
         {status === 'error' && (
           <div className="space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-red-500/10 flex items-center justify-center text-red-400">
+            <div className="w-16 h-16 mx-auto rounded-full bg-error/10 flex items-center justify-center text-error">
               <ShieldAlert className="w-8 h-8" />
             </div>
-            <p className="text-red-400 font-semibold">Verification Failed</p>
-            <p className="text-gray-400 text-sm leading-relaxed">{errorMsg}</p>
+            <p className="text-error font-semibold">Verification Failed</p>
+            <p className="text-base-content/60 text-sm leading-relaxed">{errorMsg}</p>
           </div>
         )}
 
         <button
           onClick={onRedirect}
-          className="w-full py-2.5 rounded-lg bg-scarlet hover:bg-scarlet-light text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+          className="btn btn-primary w-full gap-2 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           Return to Login
@@ -186,12 +226,12 @@ function ResetPasswordView({ queryParams, onRedirect }: { queryParams: URLSearch
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-brand-bg">
-        <div className="w-full max-w-md p-8 rounded-2xl glass shadow-2xl text-center space-y-4">
-          <ShieldAlert className="w-12 h-12 text-red-400 mx-auto" />
-          <h2 className="text-xl font-bold text-white">Invalid Reset Link</h2>
-          <p className="text-gray-400 text-sm">No reset token was found in the link parameters.</p>
-          <button onClick={onRedirect} className="w-full py-2 rounded bg-scarlet text-white text-xs font-bold cursor-pointer">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-base-100">
+        <div className="card w-full max-w-md p-8 bg-base-200 border border-base-300 shadow-xl text-center space-y-4">
+          <ShieldAlert className="w-12 h-12 text-error mx-auto" />
+          <h2 className="text-xl font-bold">Invalid Reset Link</h2>
+          <p className="text-base-content/60 text-sm">No reset token was found in the link parameters.</p>
+          <button onClick={onRedirect} className="btn btn-primary w-full">
             Back to Login
           </button>
         </div>
@@ -200,34 +240,34 @@ function ResetPasswordView({ queryParams, onRedirect }: { queryParams: URLSearch
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-brand-bg">
-      <div className="w-full max-w-md p-8 rounded-2xl glass shadow-2xl space-y-6">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-base-100">
+      <div className="card w-full max-w-md p-8 bg-base-200 border border-base-300 shadow-xl space-y-6">
         <div className="text-center">
-          <Key className="w-12 h-12 text-purple-400 mx-auto mb-2" />
-          <h2 className="text-2xl font-bold text-white">Reset Password</h2>
-          <p className="text-gray-400 text-xs mt-1">Enter your new credential parameters</p>
+          <Key className="w-12 h-12 text-secondary mx-auto mb-2" />
+          <h2 className="text-2xl font-bold">Reset Password</h2>
+          <p className="text-base-content/60 text-xs mt-1">Enter your new credential parameters</p>
         </div>
 
         {status === 'error' && (
-          <div className="p-3 rounded-lg bg-red-950/40 border border-red-800 text-red-300 text-sm flex justify-between items-center">
+          <div className="alert alert-error text-xs py-2 shadow-sm flex justify-between items-center">
             <span>{errorMsg}</span>
-            <button onClick={() => setStatus('form')} className="text-red-400">✕</button>
+            <button onClick={() => setStatus('form')} className="btn btn-xs btn-ghost btn-circle">✕</button>
           </div>
         )}
 
         {status === 'loading' && (
-          <div className="text-center py-6">
-            <span className="spinner spinner-lg border-scarlet" />
-            <p className="text-gray-400 text-xs mt-3">Resetting account credentials...</p>
+          <div className="text-center py-6 space-y-3">
+            <span className="loading loading-spinner loading-lg text-primary" />
+            <p className="text-base-content/60 text-xs">Resetting account credentials...</p>
           </div>
         )}
 
         {status === 'success' && (
           <div className="text-center space-y-4 py-4">
-            <ShieldCheck className="w-16 h-16 text-emerald-400 mx-auto" />
-            <p className="text-emerald-400 font-semibold">Password Reset Successful!</p>
-            <p className="text-gray-400 text-sm">Your new password is now active.</p>
-            <button onClick={onRedirect} className="w-full py-2.5 rounded bg-scarlet text-white text-xs font-bold cursor-pointer">
+            <ShieldCheck className="w-16 h-16 text-success mx-auto" />
+            <p className="text-success font-semibold">Password Reset Successful!</p>
+            <p className="text-base-content/60 text-sm">Your new password is now active.</p>
+            <button onClick={onRedirect} className="btn btn-primary w-full">
               Sign In
             </button>
           </div>
@@ -235,8 +275,8 @@ function ResetPasswordView({ queryParams, onRedirect }: { queryParams: URLSearch
 
         {status === 'form' && (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">New Password</label>
+            <div className="fieldset p-0">
+              <span className="fieldset-label text-xs uppercase tracking-wider font-semibold text-base-content/60">New Password</span>
               <div className="relative">
                 <input
                   type="password"
@@ -244,14 +284,14 @@ function ResetPasswordView({ queryParams, onRedirect }: { queryParams: URLSearch
                   placeholder="At least 8 characters"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-black/40 border border-brand-border text-white text-sm outline-none focus:border-scarlet"
+                  className="input input-bordered w-full pl-10"
                 />
-                <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
+                <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-base-content/40" />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Confirm Password</label>
+            <div className="fieldset p-0">
+              <span className="fieldset-label text-xs uppercase tracking-wider font-semibold text-base-content/60">Confirm Password</span>
               <div className="relative">
                 <input
                   type="password"
@@ -259,15 +299,15 @@ function ResetPasswordView({ queryParams, onRedirect }: { queryParams: URLSearch
                   placeholder="Repeat new password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-black/40 border border-brand-border text-white text-sm outline-none focus:border-scarlet"
+                  className="input input-bordered w-full pl-10"
                 />
-                <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
+                <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-base-content/40" />
               </div>
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 rounded-lg bg-gradient-to-r from-scarlet to-scarlet-dark text-white font-semibold text-sm cursor-pointer"
+              className="btn btn-primary w-full mt-2"
             >
               Reset Password
             </button>

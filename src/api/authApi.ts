@@ -11,6 +11,7 @@ export interface UserResponse {
   hasPassword: boolean;
   hasPasskey: boolean;
   hasOAuth2: boolean;
+  profilePictureUrl?: string;
 }
 
 export interface AuthResponse {
@@ -142,8 +143,19 @@ export async function disableTotpMfaApi(): Promise<any> {
   return res.data;
 }
 
-export async function updateProfileApi(firstName: string, lastName: string): Promise<UserResponse> {
-  const res = await apiClient.put<UserResponse>('/api/auth/me', { firstName, lastName });
+export async function updateProfileApi(firstName: string, lastName: string): Promise<any> {
+  const res = await apiClient.put<any>('/api/users/me', { firstName, lastName });
+  return res.data;
+}
+
+export async function uploadAvatarApi(file: File): Promise<any> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await apiClient.post('/api/users/me/avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return res.data;
 }
 
@@ -151,3 +163,15 @@ export async function changePasswordApi(currentPassword: string, newPassword: st
   const res = await apiClient.post<AuthResponse>('/api/auth/change-password', { currentPassword, newPassword });
   return res.data;
 }
+
+// Session management
+export async function listSessionsApi(): Promise<any[]> {
+  const res = await apiClient.get<any[]>('/api/auth/sessions');
+  return res.data;
+}
+
+export async function revokeSessionApi(id: string): Promise<any> {
+  const res = await apiClient.delete(`/api/auth/sessions/${encodeURIComponent(id)}`);
+  return res.data;
+}
+
