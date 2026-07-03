@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "org.teamzemo.scarlet",
+      "sha256_cert_fingerprints": [
+        "08:5D:36:E6:F7:54:70:55:2C:C0:EC:D5:1F:A0:8F:D7:FC:9C:8D:CF:B1:F3:3D:F2:BF:4A:71:DE:93:E4:CE:87"
+      ]
+    }
+  }
+]
