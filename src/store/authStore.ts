@@ -155,7 +155,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           ...authUser,
           firstName: profile.firstName,
           lastName: profile.lastName,
-          profilePictureUrl: profile.profilePictureUrl,
+          profilePictureUrl: profile.profilePictureUrl 
+            ? profile.profilePictureUrl.replace('http://localhost:9000/', '/').replace('http://127.0.0.1:9000/', '/') 
+            : undefined,
           fullName: `${profile.firstName} ${profile.lastName}`.trim(),
         },
         loading: false,
