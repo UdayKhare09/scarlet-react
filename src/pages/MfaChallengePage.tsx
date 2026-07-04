@@ -3,11 +3,17 @@ import { useAuthStore } from '../store/authStore';
 import { ShieldAlert, ArrowLeft, RefreshCw, Key, Shield } from 'lucide-react';
 
 export default function MfaChallengePage() {
-  const { mfaChallenge, completeMfa, clearMfaChallenge, error, clearError, loading } = useAuthStore();
+  const { mfaChallenge, completeMfa, sendEmailMfaOtp, clearMfaChallenge, error, clearError, loading } = useAuthStore();
   const [code, setCode] = useState('');
+  const [hasSentCode, setHasSentCode] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState(
-    mfaChallenge?.methods[0] || 'EMAIL_OTP'
+    mfaChallenge?.methods[0] || 'email_otp'
   );
+
+  const handleSelectMethod = (method: string) => {
+    setSelectedMethod(method);
+    setHasSentCode(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,12 +70,12 @@ export default function MfaChallengePage() {
                 <button
                   key={m}
                   type="button"
-                  onClick={() => setSelectedMethod(m)}
+                  onClick={() => handleSelectMethod(m)}
                   className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
                     selectedMethod === m ? 'bg-base-100 text-base-content shadow-sm' : 'text-base-content/60'
                   }`}
                 >
-                  {m === 'EMAIL_OTP' ? 'Email OTP' : 'Authenticator App'}
+                  {m === 'email_otp' ? 'Email OTP' : 'Authenticator App'}
                 </button>
               ))}
             </div>
@@ -77,42 +83,73 @@ export default function MfaChallengePage() {
         )}
 
         {/* Verification Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="fieldset p-0">
-            <span className="fieldset-label font-bold text-xs uppercase tracking-wider text-base-content/60">
-              {selectedMethod === 'EMAIL_OTP' ? 'Enter Email OTP Code' : 'Enter Authenticator App Code'}
-            </span>
-            <div className="relative w-full">
-              <input
-                type="text"
-                required
-                pattern="[0-9]*"
-                inputMode="numeric"
-                maxLength={8}
-                placeholder="e.g. 123456"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))}
-                className="input input-bordered w-full pl-10 text-center tracking-widest font-mono font-bold text-lg"
-              />
-              <Key className="absolute left-3.5 top-3.5 w-4 h-4 text-base-content/40" />
-            </div>
-            <span className="fieldset-helper text-xs text-base-content/50 mt-1">
-              {selectedMethod === 'EMAIL_OTP' 
-                ? 'We sent a verification code to your email address.' 
-                : 'Enter the 6-digit code from your authenticator app.'
-              }
-            </span>
-          </div>
-
+        {selectedMethod === 'email_otp' && !hasSentCode ? (
           <button
-            type="submit"
+            type="button"
             disabled={loading}
-            className="btn btn-primary w-full gap-2 mt-2"
+            onClick={async () => {
+              try {
+                await sendEmailMfaOtp();
+                setHasSentCode(true);
+              } catch {
+                // error handled by store
+              }
+            }}
+            className="btn btn-primary w-full gap-2 mt-4"
           >
             {loading ? <span className="loading loading-spinner loading-xs" /> : <RefreshCw className="w-4 h-4" />}
-            Verify &amp; Continue
+            Send Verification Code
           </button>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="fieldset p-0">
+              <span className="fieldset-label font-bold text-xs uppercase tracking-wider text-base-content/60">
+                {selectedMethod === 'email_otp' ? 'Enter Email OTP Code' : 'Enter Authenticator App Code'}
+              </span>
+              <div className="relative w-full">
+                <input
+                  type="text"
+                  required
+                  pattern="[0-9]*"
+                  inputMode="numeric"
+                  maxLength={8}
+                  placeholder="e.g. 123456"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))}
+                  className="input input-bordered w-full pl-10 text-center tracking-widest font-mono font-bold text-lg"
+                />
+                <Key className="absolute left-3.5 top-3.5 w-4 h-4 text-base-content/40" />
+              </div>
+              <span className="fieldset-helper text-xs text-base-content/50 mt-1">
+                {selectedMethod === 'email_otp' 
+                  ? 'We sent a verification code to your email address.' 
+                  : 'Enter the 6-digit code from your authenticator app.'
+                }
+              </span>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-primary w-full gap-2 mt-2"
+            >
+              {loading ? <span className="loading loading-spinner loading-xs" /> : <RefreshCw className="w-4 h-4" />}
+              Verify &amp; Continue
+            </button>
+
+            {selectedMethod === 'email_otp' && (
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => sendEmailMfaOtp()}
+                  className="btn btn-xs btn-link text-xs font-bold text-base-content/60 hover:text-base-content"
+                >
+                  Resend Email Code
+                </button>
+              </div>
+            )}
+          </form>
+        )}
 
         {/* Footer */}
         <div className="text-center pt-2">

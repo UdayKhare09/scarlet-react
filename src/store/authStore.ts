@@ -11,6 +11,7 @@ import {
   listSessionsApi,
   revokeSessionApi,
   uploadAvatarApi,
+  sendEmailOtpApi,
 } from '../api/authApi';
 import type { UserResponse } from '../api/authApi';
 
@@ -33,6 +34,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<boolean>;
   register: (firstName: string, lastName: string, email: string, password: string) => Promise<string>;
   completeMfa: (method: string, code: string) => Promise<boolean>;
+  sendEmailMfaOtp: () => Promise<void>;
   logout: () => Promise<void>;
   syncProfile: () => Promise<void>;
   updateProfile: (firstName: string, lastName: string) => Promise<void>;
@@ -123,6 +125,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return true;
     } catch (err: any) {
       get().addLog(`MFA verification failed: ${err.message}`);
+      set({ error: err.message, loading: false });
+      throw err;
+    }
+  },
+
+  sendEmailMfaOtp: async () => {
+    const challenge = get().mfaChallenge;
+    if (!challenge) throw new Error('No active MFA challenge session');
+    get().addLog(`Requesting email OTP...`);
+    set({ loading: true, error: null });
+    try {
+      await sendEmailOtpApi(challenge.pendingToken);
+      get().addLog(`Email OTP sent successfully.`);
+      set({ loading: false });
+    } catch (err: any) {
+      get().addLog(`Failed to send Email OTP: ${err.message}`);
       set({ error: err.message, loading: false });
       throw err;
     }
