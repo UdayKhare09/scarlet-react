@@ -13,6 +13,7 @@ export default function MfaChallengePage() {
   const handleSelectMethod = (method: string) => {
     setSelectedMethod(method);
     setHasSentCode(false);
+    setCode('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,12 +111,18 @@ export default function MfaChallengePage() {
                 <input
                   type="text"
                   required
-                  pattern="[0-9]*"
-                  inputMode="numeric"
-                  maxLength={8}
-                  placeholder="e.g. 123456"
+                  pattern={selectedMethod === 'email_otp' ? '[a-zA-Z0-9]*' : '[0-9]*'}
+                  inputMode={selectedMethod === 'email_otp' ? 'text' : 'numeric'}
+                  maxLength={6}
+                  placeholder={selectedMethod === 'email_otp' ? 'e.g. AB3D9E' : 'e.g. 123456'}
                   value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const filtered = selectedMethod === 'email_otp'
+                      ? val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+                      : val.replace(/[^0-9]/g, '');
+                    setCode(filtered);
+                  }}
                   className="input input-bordered w-full pl-10 text-center tracking-widest font-mono font-bold text-lg"
                 />
                 <Key className="absolute left-3.5 top-3.5 w-4 h-4 text-base-content/40" />
